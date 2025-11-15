@@ -1,7 +1,22 @@
-import 'package:flutter/material.dart';
+import 'dart:io';
 
-void main() {
-  runApp(const MyApp());
+import 'package:flutter/material.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+
+import 'config/dart_defines.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  if (!DartDefines.hasSentryDsn) {
+    runApp(const MyApp());
+    return;
+  }
+
+  await SentryFlutter.init((options) {
+    options.dsn = DartDefines.sentryDsn;
+    options.release = '1.0.1';
+  }, appRunner: () => runApp(const MyApp()));
 }
 
 class MyApp extends StatelessWidget {
@@ -9,6 +24,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    try {
+      throw TestCustomException(message: 'Test Custom Exception');
+    } catch (exception, stackTrace) {
+      Sentry.captureException(exception, stackTrace: stackTrace);
+    }
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
@@ -26,7 +46,32 @@ class FullScreenPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(child: Text('Full Screen Preview')),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('Full Screen Preview'),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                exit(0);
+              },
+              child: const Text('Throw State Error'),
+            ),
+          ],
+        ),
+      ),
     );
+  }
+}
+
+class TestCustomException implements Exception {
+  TestCustomException({required this.message});
+
+  final String message;
+
+  @override
+  String toString() {
+    return 'TestCustomException: $message';
   }
 }
